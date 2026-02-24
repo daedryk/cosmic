@@ -1,0 +1,260 @@
+<style>
+.eternal-universe-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    width: 100%;
+    max-width: 600px;
+    margin: 0 auto;
+    background: #000;
+    font-family: 'Arial', sans-serif;
+    color: white;
+    padding: 20px 0 20px 0;
+    box-sizing: border-box;
+}
+.eternal-universe-wrapper {
+    --electric-blue: #00ffff;
+    --electric-pink: #ff00ff;
+    --electric-purple: #9d00ff;
+}
+.eu-image-container {
+    position: relative;
+    width: 100%;
+    max-width: 600px;
+    aspect-ratio: 1 / 1;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 1);
+    margin: 0 auto;
+    cursor: pointer;
+}
+#eu-graphCanvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background-color: transparent;
+}
+.eu-bolts {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+.eu-bolt {
+    stroke-width: 2;
+    stroke-linecap: round;
+    fill: none;
+    filter: drop-shadow(0 0 5px currentColor);
+    opacity: 0;
+    animation: eu-boltFade 1s ease-out forwards;
+    width: 100%;
+    height: 100%;
+}
+.eu-bolt path {
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+@keyframes eu-boltFade {
+    0% { opacity: 0; }
+    20% { opacity: 1; }
+    100% { opacity: 0; }
+}
+.eu-caption {
+    font-size: min(24px, 5vw);
+    color: rgba(255,255,255,0.7);
+    margin-top: 25px;
+    margin-bottom: 10px;
+    text-align: center;
+    text-shadow: 0 0 5px var(--electric-blue);
+    padding: 0 15px;
+}
+</style>
+
+<div class="eternal-universe-wrapper">
+    <div class="eu-image-container" id="eu-clickArea">
+        <canvas id="eu-graphCanvas" width="600" height="600"></canvas>
+        <div class="eu-bolts" id="eu-bolts"></div>
+    </div>
+    <div class="eu-caption">
+      Eternal Universe
+    </div>
+</div>
+
+<script>
+(function() {
+    const colors = ['#00ffff', '#ff00ff', '#9d00ff', '#00ffaa'];
+    const centerX = 300;
+    const centerY = 300;
+    const canvas = document.getElementById('eu-graphCanvas');
+    const boltsContainer = document.getElementById('eu-bolts');
+    const clickArea = document.getElementById('eu-clickArea');
+    let boltInterval;
+    
+    function clearEffects() {
+        if (boltInterval) {
+            clearInterval(boltInterval);
+            boltInterval = null;
+        }
+        if (boltsContainer) boltsContainer.innerHTML = '';
+    }
+
+    function drawCosmicGraph() {
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const maxRadius = 250;
+        const minRadius = 50;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.lineWidth = 1;
+        for (let angle = 0; angle < 360; angle += 15) {
+            const rad = angle * Math.PI / 180;
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY);
+            ctx.lineTo(centerX + Math.cos(rad) * maxRadius * 1.1, 
+                       centerY + Math.sin(rad) * maxRadius * 1.1);
+            ctx.stroke();
+        }
+        for (let r = 50; r <= maxRadius; r += 50) {
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, r, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+        const points = [];
+        ctx.strokeStyle = 'rgba(0, 255, 255, 0.8)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for (let i = 0; i <= 1000; i++) {
+            const theta = (i / 1000) * Math.PI * 2;
+            const x = -180 + (360 * theta / (Math.PI * 2));
+            const y = Math.sin(x) * x * Math.cos(x);
+            const radius = minRadius + ((maxRadius - minRadius) * (y + 180) / 360);
+            const graphX = centerX + Math.cos(theta - Math.PI/2) * radius;
+            const graphY = centerY + Math.sin(theta - Math.PI/2) * radius;
+            if (i === 0) ctx.moveTo(graphX, graphY);
+            else ctx.lineTo(graphX, graphY);
+            points.push({x: graphX, y: graphY});
+        }
+        ctx.stroke();
+        ctx.strokeStyle = 'rgba(155, 255, 255, 0.4)';
+        ctx.lineWidth = 8;
+        ctx.beginPath();
+        points.forEach(point => ctx.lineTo(point.x, point.y));
+        ctx.stroke();
+        points.forEach((point, i) => {
+            if (i % 20 === 0) {
+                const gradient = ctx.createRadialGradient(point.x, point.y, 0, point.x, point.y, 4);
+                gradient.addColorStop(0, 'rgba(0, 255, 255, 1)');
+                gradient.addColorStop(1, 'rgba(0, 255, 255, 0)');
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(point.x, point.y, 4, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        });
+    }
+
+    function createBolt(opts = {}) {
+        if (!boltsContainer) return;
+        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.setAttribute('width', '600');
+        svg.setAttribute('height', '600');
+        svg.setAttribute('viewBox', '0 0 600 600');
+        svg.style.position = 'absolute';
+        svg.classList.add('eu-bolt');
+        const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        svg.appendChild(group);
+        colors.forEach(color => {
+            const {
+                startX = centerX,
+                startY = centerY,
+                maxDepth = 3,
+                branches = 3,
+                length = 100,
+                width = 2,
+                jitter = 0.3
+            } = opts;
+            function createBranch(x1, y1, angle, depth, currentLength, color) {
+                if (depth > maxDepth) return;
+                const endX = x1 + Math.cos(angle) * currentLength * (0.7 + Math.random() * 0.6);
+                const endY = y1 + Math.sin(angle) * currentLength * (0.7 + Math.random() * 0.6);
+                const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                const midX = (x1 + endX) / 2 + (Math.random() - 0.5) * currentLength * jitter;
+                const midY = (y1 + endY) / 2 + (Math.random() - 0.5) * currentLength * jitter;
+                path.setAttribute('d', `M ${x1} ${y1} Q ${midX} ${midY} ${endX} ${endY}`);
+                path.setAttribute('stroke', color);
+                path.setAttribute('stroke-width', width * (0.5 + (maxDepth - depth) / maxDepth));
+                path.setAttribute('fill', 'none');
+                group.appendChild(path);
+                if (depth < maxDepth) {
+                    for (let i = 0; i < branches; i++) {
+                        const branchAngle = angle + (Math.random() - 0.5) * Math.PI * 0.7;
+                        createBranch(endX, endY, branchAngle, depth + 1, 
+                                     currentLength * (0.4 + Math.random() * 0.3), color);
+                    }
+                }
+            }
+            const initialAngle = Math.random() * Math.PI * 2;
+            createBranch(startX, startY, initialAngle, 0, length, color);
+        });
+        boltsContainer.appendChild(svg);
+        setTimeout(() => {
+            svg.style.transition = 'opacity 0.5s ease-out';
+            svg.style.opacity = '0';
+            setTimeout(() => svg.remove(), 500);
+        }, 1000);
+    }
+
+    function createInitialEnergy() {
+        for (let i = 0; i < 8; i++) {
+            setTimeout(() => {
+                createBolt({
+                    maxDepth: 2 + Math.floor(Math.random() * 3),
+                    branches: 2 + Math.floor(Math.random() * 3),
+                    length: 0 + Math.random() * 100,
+                    width: 1 + Math.random() * 3,
+                    jitter: 0.2 + Math.random() * 0.3
+                });
+            }, Math.random() * 1000);
+        }
+    }
+
+    function startContinuousBolts() {
+        if (boltInterval) clearInterval(boltInterval);
+        boltInterval = setInterval(() => { 
+            if(Math.random() > 0.3) createBolt(); 
+        }, 100);
+    }
+
+    function initVisualization() {
+        drawCosmicGraph();
+        createInitialEnergy();
+        startContinuousBolts();
+    }
+
+    function reinitializeOnClick() {
+        clearEffects();
+        initVisualization();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+            clearEffects();
+            initVisualization();
+            clickArea.addEventListener('click', reinitializeOnClick);
+            clickArea.addEventListener('touchstart', reinitializeOnClick);
+        });
+    } else {
+        clearEffects();
+        initVisualization();
+        clickArea.addEventListener('click', reinitializeOnClick);
+        clickArea.addEventListener('touchstart', reinitializeOnClick);
+    }
+
+    window.addEventListener('beforeunload', function() {
+        clearEffects();
+    });
+})();
+</script>
